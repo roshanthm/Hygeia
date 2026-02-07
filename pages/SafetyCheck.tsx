@@ -1,13 +1,65 @@
-
 import React, { useState } from 'react';
 import { Card, Button, Badge } from '../components/UI';
-import { checkAllergyAndDrug } from '../services/geminiService';
 import { SafetyCheckResult, Page } from '../types';
-import { Search, HeartPulse, X, AlertTriangle, CheckCircle, Info, Activity, Stethoscope, ArrowLeft } from 'lucide-react';
+import { Search, X, AlertTriangle, CheckCircle, Info, ArrowLeft, Pill, Activity, Shield } from 'lucide-react';
 
 interface SafetyCheckProps {
   onNavigate: (page: Page) => void;
 }
+
+// MOCK DATABASE FOR PROTOTYPE
+const MOCK_DB: Record<string, SafetyCheckResult> = {
+  'Amoxicillin': {
+    status: 'RISK',
+    warnings: ['Contains Penicillin class antibiotics', 'Risk of anaphylaxis if allergic to beta-lactams'],
+    explanation: 'High risk of severe allergic reaction due to Penicillin content.',
+    drugDetails: {
+      name: 'Amoxicillin',
+      ingredients: ['Amoxicillin Trihydrate', 'Magnesium Stearate'],
+      family: 'Penicillin Antibiotic'
+    }
+  },
+  'Aspirin': {
+    status: 'CAUTION',
+    warnings: ['May cause stomach bleeding', 'Avoid if allergic to NSAIDs'],
+    explanation: 'Use effectively, but monitor if sensitive to NSAIDs or salicylates.',
+    drugDetails: {
+      name: 'Aspirin',
+      ingredients: ['Acetylsalicylic Acid', 'Corn Starch'],
+      family: 'NSAID (Non-steroidal anti-inflammatory)'
+    }
+  },
+  'Tylenol': {
+    status: 'SAFE',
+    warnings: [],
+    explanation: 'Generally safe. No common cross-reactions with provided profile.',
+    drugDetails: {
+      name: 'Tylenol',
+      ingredients: ['Acetaminophen'],
+      family: 'Analgesic'
+    }
+  },
+  'Ibuprofen': {
+    status: 'CAUTION',
+    warnings: ['Avoid if allergic to NSAIDs', 'Take with food'],
+    explanation: 'Caution advised for users with NSAID sensitivity.',
+    drugDetails: {
+      name: 'Ibuprofen',
+      ingredients: ['Ibuprofen', 'Lactose'],
+      family: 'NSAID'
+    }
+  },
+  'Claritin': {
+    status: 'SAFE',
+    warnings: [],
+    explanation: 'Safe for use. Non-drowsy antihistamine.',
+    drugDetails: {
+      name: 'Claritin',
+      ingredients: ['Loratadine'],
+      family: 'Antihistamine'
+    }
+  }
+};
 
 const SafetyCheck: React.FC<SafetyCheckProps> = ({ onNavigate }) => {
   const [drugName, setDrugName] = useState('');
@@ -31,173 +83,225 @@ const SafetyCheck: React.FC<SafetyCheckProps> = ({ onNavigate }) => {
 
   const runCheck = async () => {
     if (!drugName.trim()) {
-      setError("Please enter a drug name.");
+      setError("Please enter a drug name (e.g., Amoxicillin, Aspirin, Tylenol).");
       return;
     }
+
     setIsChecking(true);
     setError(null);
-    try {
-      const data = await checkAllergyAndDrug(drugName, allergies);
-      setResult(data);
-    } catch (err) {
-      setError("Failed to check safety. Please try again.");
-    } finally {
+    setResult(null);
+
+    // SMIMULATE API DELAY
+    setTimeout(() => {
+      const dbResult = MOCK_DB[Object.keys(MOCK_DB).find(k => k.toLowerCase() === drugName.trim().toLowerCase()) || ''];
+
+      if (dbResult) {
+        // Simple logic to adjust risk based on allergies for the prototype
+        let finalResult = { ...dbResult };
+        const hasPenicillinAllergy = allergies.some(a => a.toLowerCase().includes('penicillin'));
+        const hasNSAIDAllergy = allergies.some(a => a.toLowerCase().includes('nsaid') || a.toLowerCase().includes('aspirin'));
+
+        if (finalResult.drugDetails?.family.includes('Penicillin') && hasPenicillinAllergy) {
+          finalResult.status = 'RISK';
+          finalResult.explanation = 'CRITICAL: Patient has Penicillin allergy. Do not administer.';
+        } else if (finalResult.drugDetails?.family.includes('NSAID') && hasNSAIDAllergy) {
+          finalResult.status = 'RISK';
+          finalResult.explanation = 'CRITICAL: NSAID Allergy detected.';
+        }
+
+        setResult(finalResult);
+      } else {
+        // Fallback for unknown drugs in prototype
+        setResult({
+          status: 'CAUTION',
+          warnings: ['Drug not in local prototype database', 'Consult pharmacist'],
+          explanation: 'This drug is not in the prototype database. Proceed with caution.',
+          drugDetails: {
+            name: drugName,
+            ingredients: ['Unknown'],
+            family: 'Unknown'
+          }
+        });
+      }
       setIsChecking(false);
-    }
+    }, 1200);
+  };
+
+  const reset = () => {
+    setResult(null);
+    setDrugName('');
+    setError(null);
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-16 animate-in fade-in duration-700">
-      <div className="mb-12">
-        <button 
-          onClick={() => onNavigate('home')}
-          className="flex items-center gap-2 text-slate-400 hover:text-blue-600 font-bold transition-colors group"
-        >
-          <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-          Back to Home
-        </button>
-      </div>
+    <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-4">
+      {/* Background Decor */}
+      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-teal-400/20 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-blue-400/20 rounded-full blur-[100px] pointer-events-none" />
 
-      <div className="text-center mb-16">
-        <h1 className="text-5xl font-black text-slate-900 tracking-tighter mb-4">Allergy & Drug Interaction Check</h1>
-        <p className="text-slate-500 font-medium text-lg">Compare medical ingredients with your personal health profile.</p>
-      </div>
+      <div className="relative w-full max-w-5xl z-10 flex flex-col md:flex-row gap-8 items-start">
 
-      <div className="grid grid-cols-1 md:grid-cols-1 gap-10">
-        <Card className="p-10 shadow-2xl space-y-10 border-0">
-          <div className="space-y-4">
-            <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-              <Search size={16} /> Step 1: Medication Name
-            </h3>
-            <input 
-              type="text" 
-              className="w-full p-6 bg-slate-50 border border-slate-100 rounded-3xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 text-xl font-bold placeholder:text-slate-300 transition-all"
-              placeholder="e.g. Amoxicillin or Aspirin"
-              value={drugName}
-              onChange={(e) => setDrugName(e.target.value)}
-            />
+        {/* Left Side: Controls */}
+        <div className="w-full md:w-1/3 space-y-6">
+          <button
+            onClick={() => onNavigate('home')}
+            className="flex items-center gap-2 text-slate-500 hover:text-teal-700 font-medium transition-colors pl-1"
+          >
+            <ArrowLeft size={18} /> Back
+          </button>
+
+          <div className="mb-4">
+            <h1 className="text-3xl font-bold text-slate-800 mb-1">Safety Check</h1>
+            <p className="text-slate-500 text-sm">Cross-reference drugs with your allergies.</p>
           </div>
 
-          <div className="space-y-4">
-            <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-              <Activity size={16} /> Step 2: Your Allergy Profile
-            </h3>
-            <div className="flex gap-3">
-              <input 
-                type="text" 
-                className="flex-grow p-6 bg-slate-50 border border-slate-100 rounded-3xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 text-lg font-bold placeholder:text-slate-300 transition-all"
-                placeholder="Add allergy (e.g. Penicillin)"
-                value={allergyInput}
-                onChange={(e) => setAllergyInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && addAllergy(allergyInput)}
-              />
-              <Button onClick={() => addAllergy(allergyInput)} className="rounded-3xl px-8">Add</Button>
+          <Card glass className="space-y-6 border-white/40 shadow-xl backdrop-blur-md">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                Medication
+              </label>
+              <div className="relative">
+                <Search size={16} className="absolute left-3 top-3.5 text-slate-400" />
+                <input
+                  type="text"
+                  className="w-full pl-10 pr-4 py-3 bg-white/50 border border-white/60 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/50 text-slate-800 placeholder:text-slate-400 font-medium"
+                  placeholder="e.g. Amoxicillin"
+                  value={drugName}
+                  onChange={(e) => setDrugName(e.target.value)}
+                />
+              </div>
             </div>
-            
-            <div className="flex flex-wrap gap-2 pt-2">
-              {allergies.map((a, i) => (
-                <div key={i} className="bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-2xl text-sm font-black flex items-center gap-3 shadow-sm">
-                  {a}
-                  <button onClick={() => removeAllergy(i)} className="text-slate-300 hover:text-rose-500 transition-colors">
-                    <X size={16} />
-                  </button>
-                </div>
-              ))}
-              {allergies.length === 0 && (
-                <span className="text-slate-400 italic text-sm py-2">No allergies listed.</span>
-              )}
-            </div>
-          </div>
 
-          <div className="pt-6">
-            <Button onClick={runCheck} loading={isChecking} className="w-full py-6 text-xl rounded-[2rem] shadow-blue-500/20">
-              {isChecking ? 'Processing Medical Data...' : 'Analyze Safety Profile'}
-            </Button>
-          </div>
-        </Card>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                Allergies
+              </label>
+              <div className="flex gap-2 mb-3">
+                <input
+                  type="text"
+                  className="flex-grow px-4 py-2 bg-white/50 border border-white/60 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/50 text-slate-800 placeholder:text-slate-400 text-sm"
+                  placeholder="Add allergy..."
+                  value={allergyInput}
+                  onChange={(e) => setAllergyInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addAllergy(allergyInput)}
+                />
+                <button
+                  onClick={() => addAllergy(allergyInput)}
+                  className="bg-slate-800 text-white px-4 rounded-xl text-sm font-medium hover:bg-slate-900 transition-colors"
+                >
+                  Add
+                </button>
+              </div>
 
-        {result && (
-          <div className="animate-in fade-in slide-in-from-bottom-10 duration-700 space-y-8">
-            <div className={`p-10 rounded-[3rem] border-2 shadow-2xl flex flex-col md:flex-row items-center gap-10 ${
-              result.status === 'SAFE' ? 'bg-emerald-50 border-emerald-100 shadow-emerald-200/50' :
-              result.status === 'RISK' ? 'bg-rose-50 border-rose-100 shadow-rose-200/50' : 
-              'bg-amber-50 border-amber-100 shadow-amber-200/50'
-            }`}>
-              <div className="shrink-0">
-                {result.status === 'SAFE' ? (
-                  <div className="bg-emerald-500 text-white p-6 rounded-[2.5rem] shadow-xl">
-                    <CheckCircle size={50} />
-                  </div>
-                ) : result.status === 'RISK' ? (
-                  <div className="bg-rose-500 text-white p-6 rounded-[2.5rem] shadow-xl animate-pulse">
-                    <AlertTriangle size={50} />
-                  </div>
-                ) : (
-                  <div className="bg-amber-500 text-white p-6 rounded-[2.5rem] shadow-xl">
-                    <Info size={50} />
-                  </div>
+              <div className="flex flex-wrap gap-2 min-h-[40px]">
+                {allergies.map((a, i) => (
+                  <span key={i} className="bg-white/60 border border-slate-200 text-slate-700 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1 shadow-sm">
+                    {a}
+                    <button onClick={() => removeAllergy(i)} className="hover:text-red-500"><X size={12} /></button>
+                  </span>
+                ))}
+                {allergies.length === 0 && (
+                  <span className="text-slate-400 text-xs italic p-1">No allergies added.</span>
                 )}
               </div>
-              <div className="text-center md:text-left">
-                <h2 className={`text-4xl font-black mb-3 ${
-                  result.status === 'SAFE' ? 'text-emerald-900' :
-                  result.status === 'RISK' ? 'text-rose-900' : 'text-amber-900'
-                }`}>
-                  {result.status === 'SAFE' ? 'Safe to Use' : 
-                   result.status === 'RISK' ? 'Allergy Risk Detected' : 'Caution Advised'}
-                </h2>
-                <p className={`text-xl font-bold ${
-                  result.status === 'SAFE' ? 'text-emerald-700' :
-                  result.status === 'RISK' ? 'text-rose-700' : 'text-amber-700'
-                }`}>
-                  {result.explanation}
-                </p>
-              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <Card className="p-10 space-y-6">
-                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                  <Stethoscope size={16} /> Clinical Details
-                </h4>
-                <div>
-                  <h5 className="text-2xl font-black text-slate-900 mb-1">{result.drugDetails?.name}</h5>
-                  <p className="text-slate-500 font-bold uppercase tracking-wider text-xs">{result.drugDetails?.family}</p>
+            <Button
+              onClick={runCheck}
+              loading={isChecking}
+              className="w-full py-3 text-lg shadow-lg shadow-teal-500/20 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 border-none text-white rounded-2xl"
+            >
+              {isChecking ? 'Analyzing...' : 'Run Safety Analysis'}
+            </Button>
+
+            {error && <p className="text-red-500 text-xs text-center">{error}</p>}
+          </Card>
+        </div>
+
+        {/* Right Side: Visualization / Results */}
+        <div className="w-full md:w-2/3 min-h-[500px] flex items-center justify-center">
+          {!result ? (
+            <div className="text-center opacity-40">
+              <Shield size={80} className="mx-auto mb-4 text-slate-400 stroke-1" />
+              <h3 className="text-xl font-medium text-slate-600">Ready to Analyze</h3>
+              <p className="text-sm text-slate-500 max-w-xs mx-auto mt-2">
+                Enter a medication to see how it interacts with your allergy profile in real-time.
+              </p>
+            </div>
+          ) : (
+            <Card glass className="w-full animate-in fade-in slide-in-from-bottom-8 duration-700 p-8 border-white/60 shadow-2xl relative overflow-hidden rounded-[2.5rem]">
+              {/* Result Header */}
+              <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center gap-6 mb-8 border-b border-white/30 pb-8">
+                <div className={`p-4 rounded-2xl shadow-lg ${result.status === 'SAFE' ? 'bg-emerald-500 text-white shadow-emerald-500/30' :
+                    result.status === 'RISK' ? 'bg-rose-500 text-white shadow-rose-500/30' :
+                      'bg-amber-500 text-white shadow-amber-500/30'
+                  }`}>
+                  {result.status === 'SAFE' ? <CheckCircle size={32} /> :
+                    result.status === 'RISK' ? <AlertTriangle size={32} /> :
+                      <Info size={32} />}
                 </div>
-                <div className="space-y-2">
-                  <p className="text-sm font-bold text-slate-400">Main Ingredients:</p>
-                  <div className="flex flex-wrap gap-2">
+                <div>
+                  <div className="flex items-center gap-3 mb-1">
+                    <h2 className={`text-3xl font-bold ${result.status === 'SAFE' ? 'text-emerald-800' :
+                        result.status === 'RISK' ? 'text-rose-800' : 'text-amber-800'
+                      }`}>
+                      {result.status === 'SAFE' ? 'Safe to Administer' :
+                        result.status === 'RISK' ? 'High Risk Detected' : 'Proceed with Caution'}
+                    </h2>
+                  </div>
+                  <p className="text-slate-600 font-medium text-lg leading-relaxed">
+                    {result.explanation}
+                  </p>
+                </div>
+              </div>
+
+              {/* Details Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
+                <div className="bg-white/40 p-5 rounded-2xl border border-white/50 backdrop-blur-sm hover:bg-white/60 transition-colors">
+                  <div className="flex items-center gap-2 mb-3 text-slate-500 uppercase text-xs font-bold tracking-wider">
+                    <Pill size={14} /> Drug Composition
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-xl font-bold text-slate-800">{result.drugDetails?.name}</div>
+                    <div className="text-sm font-medium text-slate-500">{result.drugDetails?.family}</div>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-1">
                     {result.drugDetails?.ingredients.map((ing, i) => (
-                      <span key={i} className="bg-slate-100 text-slate-600 px-3 py-1 rounded-xl text-xs font-bold">{ing}</span>
+                      <span key={i} className="bg-slate-200/50 text-slate-600 px-2.5 py-1 rounded-lg text-xs font-semibold">
+                        {ing}
+                      </span>
                     ))}
                   </div>
                 </div>
-              </Card>
 
-              <Card className="p-10 space-y-6">
-                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                  <HeartPulse size={16} /> Specific Warnings
-                </h4>
-                <div className="space-y-4">
-                  {result.warnings.map((w, i) => (
-                    <div key={i} className="flex gap-4 items-start">
-                      <div className={`mt-1 h-3 w-3 rounded-full shrink-0 ${result.status === 'RISK' ? 'bg-rose-500' : 'bg-amber-500'}`}></div>
-                      <p className="text-slate-700 font-bold leading-tight">{w}</p>
+                <div className="bg-white/40 p-5 rounded-2xl border border-white/50 backdrop-blur-sm hover:bg-white/60 transition-colors">
+                  <div className="flex items-center gap-2 mb-3 text-slate-500 uppercase text-xs font-bold tracking-wider">
+                    <Activity size={14} /> Clinical Warnings
+                  </div>
+                  {result.warnings.length > 0 ? (
+                    <ul className="space-y-2">
+                      {result.warnings.map((w, i) => (
+                        <li key={i} className="flex gap-2.5 items-start text-sm text-slate-700 font-medium">
+                          <span className={`mt-1.5 h-1.5 w-1.5 rounded-full shrink-0 ${result.status === 'RISK' ? 'bg-rose-500' : 'bg-amber-500'}`} />
+                          {w}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="h-full flex items-center text-slate-400 text-sm italic">
+                      No specific contraindications found for this profile.
                     </div>
-                  ))}
-                  {result.warnings.length === 0 && (
-                    <p className="text-slate-400 italic font-medium">No specific contraindications found.</p>
                   )}
                 </div>
-              </Card>
-            </div>
-          </div>
-        )}
+              </div>
 
-        <div className="text-center pt-8 opacity-60">
-          <p className="text-xs text-slate-400 font-bold leading-relaxed max-w-xl mx-auto">
-            DISCLAIMER: Hygeia is an AI safety tool. Always consult a licensed medical professional or pharmacist before starting any new medication.
-          </p>
+              {/* Background status glow */}
+              <div className={`absolute top-0 right-0 w-[300px] h-[300px] rounded-full blur-[150px] -z-0 opacity-20 pointer-events-none ${result.status === 'SAFE' ? 'bg-emerald-400' :
+                  result.status === 'RISK' ? 'bg-rose-400' :
+                    'bg-amber-400'
+                }`} />
+            </Card>
+          )}
         </div>
       </div>
     </div>
