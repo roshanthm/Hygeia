@@ -1,0 +1,8 @@
+
+{
+  "name": "Hygeia",
+  "description": "AI-Powered Medicine Safety & Allergy Intelligence platform for authenticity verification and personalized risk detection.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
