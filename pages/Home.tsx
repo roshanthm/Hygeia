@@ -53,7 +53,6 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               </div>
               {/* Decorative Pill Placeholder Illustration */}
               <div className="absolute top-10 right-[-20px] opacity-10 group-hover:opacity-20 transition-opacity">
-                <Microscope size={200} />
               </div>
             </Card>
           </button>
@@ -81,7 +80,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               </div>
               {/* Decorative Shield Placeholder Illustration */}
               <div className="absolute top-10 right-[-20px] opacity-10 group-hover:opacity-20 transition-opacity">
-                <ShieldCheck size={200} />
+      
               </div>
             </Card>
           </button>
